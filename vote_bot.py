@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 import time
 import os
+import random
 
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 from plyer import notification
@@ -38,6 +39,35 @@ class VanadiaVoteBot:
             ]
         )
         self.logger = logging.getLogger(__name__)
+
+    async def simulate_human_behavior(self, page, duration=10):
+        """Simule un comportement humain avec mouvements de souris aléatoires"""
+        try:
+            self.logger.info(f"Simulation de comportement humain pendant {duration} secondes...")
+            print(f"{Fore.CYAN}⏳ Attente de {duration} secondes avec mouvements de souris...{Style.RESET_ALL}")
+
+            # Nombre de mouvements pendant la durée
+            num_moves = random.randint(5, 10)
+            interval = duration / num_moves
+
+            for i in range(num_moves):
+                # Coordonnées aléatoires dans la fenêtre
+                x = random.randint(100, 1180)
+                y = random.randint(100, 620)
+
+                # Déplacer la souris vers ces coordonnées
+                await page.mouse.move(x, y)
+                self.logger.debug(f"Mouvement souris vers ({x}, {y})")
+
+                # Attendre un peu
+                await asyncio.sleep(interval)
+
+            self.logger.info("Simulation de comportement humain terminée")
+
+        except Exception as e:
+            self.logger.warning(f"Erreur lors de la simulation de comportement: {e}")
+            # En cas d'erreur, attendre quand même la durée complète
+            await asyncio.sleep(duration)
 
     def show_notification(self, title, message, timeout=10):
         """Affiche une notification système"""
@@ -69,6 +99,9 @@ class VanadiaVoteBot:
 
             # Attendre que la page soit chargée
             await page.wait_for_load_state("domcontentloaded")
+
+            # Simulation de comportement humain pour éviter le captcha invisible
+            await self.simulate_human_behavior(page, duration=10)
 
             # Rechercher les champs de connexion
             username_selectors = [

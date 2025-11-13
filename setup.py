@@ -9,6 +9,12 @@ import os
 from pathlib import Path
 from colorama import init, Fore, Back, Style
 
+# Configuration de l'encodage UTF-8 pour Windows
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
 init()
 
 def run_command(command, description=""):
@@ -171,11 +177,11 @@ def show_usage_instructions():
     print(f"{Fore.CYAN}📋 Instructions d'utilisation:{Style.RESET_ALL}")
     print(f"{Fore.WHITE}1. Vote immédiat:{Style.RESET_ALL}")
     print(f"   {Fore.YELLOW}uv run python vote_bot.py{Style.RESET_ALL}")
-    print(f"   {Fore.GRAY}   ou: python vote_bot.py{Style.RESET_ALL}")
+    print(f"   {Fore.LIGHTBLACK_EX}   ou: python vote_bot.py{Style.RESET_ALL}")
     print()
     print(f"{Fore.WHITE}2. Planificateur (toutes les 1h30):{Style.RESET_ALL}")
     print(f"   {Fore.YELLOW}uv run python scheduler.py{Style.RESET_ALL}")
-    print(f"   {Fore.GRAY}   ou: python scheduler.py{Style.RESET_ALL}")
+    print(f"   {Fore.LIGHTBLACK_EX}   ou: python scheduler.py{Style.RESET_ALL}")
     print()
     print(f"{Fore.CYAN}📁 Fichiers créés:{Style.RESET_ALL}")
     print(f"   {Fore.WHITE}• vote_bot.py{Style.RESET_ALL}      - Bot principal")
