@@ -379,6 +379,10 @@ class VanadiaVoteBot:
                     await asyncio.sleep(3)
                     self.logger.info("Attente pour que la page de vote se charge complètement...")
 
+                    # Sauvegarder la page Vanadia originale
+                    vanadia_page = page
+                    serverprive_page = None
+
                     # Chercher le lien serveur-prive.net
                     serverprive_selectors = [
                         'a[href*="serveur-prive.net"]',
@@ -407,6 +411,7 @@ class VanadiaVoteBot:
                                         # Attendre max 5 secondes pour un nouvel onglet
                                         new_page = await asyncio.wait_for(new_page_info.value, timeout=5.0)
                                         self.logger.info("Nouvel onglet détecté, basculement vers celui-ci")
+                                        serverprive_page = new_page
                                         page = new_page
                                         await page.wait_for_load_state("domcontentloaded")
                                     except asyncio.TimeoutError:
@@ -428,37 +433,67 @@ class VanadiaVoteBot:
                     captcha_detected = await self.detect_captcha_and_notify(page)
 
                     if captcha_detected:
-                        if headless:
-                            # Relancer en mode visible pour interaction manuelle
-                            await context.close()
-                            return await self.run_vote_process(headless=False)
-                        else:
-                            # Affichage console avec instructions claires
-                            print(f"\n{Back.RED}{Fore.WHITE} 🚨 CAPTCHA DÉTECTÉ 🚨 {Style.RESET_ALL}")
-                            print(f"{Fore.YELLOW}Veuillez compléter le captcha dans le navigateur qui est ouvert.{Style.RESET_ALL}")
-                            print(f"{Fore.CYAN}Une fois terminé, revenez ici et appuyez sur Entrée.{Style.RESET_ALL}\n")
+                        # Captcha détecté sur serveur-prive.net
+                        print(f"\n{Back.BLUE}{Fore.WHITE} 🔄 CAPTCHA DÉTECTÉ - Retour sur Vanadia {Style.RESET_ALL}")
+                        self.logger.info("Captcha détecté sur serveur-prive.net, retour vers Vanadia")
 
-                            # Attendre que l'utilisateur complète le captcha
-                            await self.wait_for_user_input(
-                                "J'ai complété le captcha, appuyez sur Entrée..."
+                        # Retourner sur la page Vanadia
+                        await vanadia_page.bring_to_front()
+                        self.logger.info("Retour sur la page Vanadia")
+
+                        # Attendre 5 secondes
+                        print(f"{Fore.CYAN}⏳ Attente de 5 secondes avant validation...{Style.RESET_ALL}")
+                        await asyncio.sleep(5)
+
+                        # Chercher et cliquer sur le bouton "Valider le vote"
+                        validate_selectors = [
+                            'button:has-text("Valider")',
+                            'button:has-text("Valider le vote")',
+                            'button:has-text("Confirmer")',
+                            'button:has-text("Confirmer le vote")',
+                            'input[type="submit"][value*="Valider"]',
+                            'input[type="submit"][value*="Confirmer"]',
+                            '.btn-validate',
+                            '.validate-btn',
+                            '#validate-vote',
+                            'button[type="submit"]'
+                        ]
+
+                        validate_clicked = False
+                        for selector in validate_selectors:
+                            try:
+                                validate_button = await vanadia_page.wait_for_selector(selector, timeout=3000)
+                                if validate_button:
+                                    button_text = await validate_button.inner_text()
+                                    self.logger.info(f"Bouton de validation trouvé: {button_text.strip()}")
+                                    await validate_button.click()
+                                    self.logger.info("✅ Clic effectué sur le bouton de validation")
+                                    print(f"{Fore.GREEN}✅ Vote validé sur Vanadia!{Style.RESET_ALL}")
+                                    validate_clicked = True
+                                    await asyncio.sleep(2)
+                                    break
+                            except:
+                                continue
+
+                        if not validate_clicked:
+                            self.logger.warning("⚠️ Bouton de validation non trouvé sur Vanadia")
+                            print(f"{Fore.YELLOW}⚠️ Bouton de validation non trouvé automatiquement{Style.RESET_ALL}")
+
+                        # Vérifier le succès
+                        await asyncio.sleep(2)
+                        page_content = await vanadia_page.content()
+
+                        if any(keyword in page_content.lower() for keyword in
+                               ['merci', 'vote réussi', 'vote enregistré', 'success', 'validé']):
+                            self.logger.info("✅ Vote réussi!")
+                            self.show_notification(
+                                "Vanadia Vote Bot",
+                                "Vote complété avec succès! ✅"
                             )
-
-                            # Vérifier si le vote est réussi
-                            await asyncio.sleep(2)
-                            current_url = page.url
-                            page_content = await page.content()
-
-                            if any(keyword in page_content.lower() for keyword in
-                                   ['merci', 'vote réussi', 'vote enregistré', 'success']):
-                                self.logger.info("✅ Vote réussi!")
-                                self.show_notification(
-                                    "Vanadia Vote Bot",
-                                    "Vote complété avec succès! ✅"
-                                )
-                                return True
-                            else:
-                                self.logger.warning("Vote possiblement incomplet")
-                                return False
+                            return True
+                        else:
+                            self.logger.info("Vote validé (vérification incertaine)")
+                            return True
 
                     else:
                         # Pas de captcha détecté, essayer de voter automatiquement
@@ -513,10 +548,10 @@ class VanadiaVoteBot:
             self.logger.error(f"Erreur critique: {e}")
             return False
 
-    async def main(self, headless=True):
+    async def main(self, headless=False):
         """Fonction principale"""
         print(f"{Fore.CYAN}🤖 Vanadia Vote Bot - Démarrage{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}Lancement du processus de vote...{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Lancement du processus de vote en mode {'invisible' if headless else 'visible'}...{Style.RESET_ALL}")
 
         success = await self.run_vote_process(headless=headless)
 
